@@ -11,13 +11,13 @@ IF --remove:
     - uninstall operator
 ELSE:
     IF initialize:
+        - install osdk
         - install operator-sdk
         - initialize operator
         - create api for each Kind
     IF build:
         - create operator images
     IF deploy:
-        - build tasks
         IF --namespace=:
             - kustomize namespace
         - validate cluster access
@@ -26,12 +26,12 @@ ELSE:
             - deploy CR
     IF bundle:
         - install osdk
-        - build tasks
-        - build bundles
+        - IF config/manifests not created:
+            - `make bundle`
+        - create bundle images
     IF push:
         - validate credentials
-        - bundle tasks
-        - push images
+        - push operator and bundle images (if they exist)
 """
 
 from typing import List, Iterable, TypeVar
@@ -87,7 +87,7 @@ class Operator(object):
 
     def __repr__(self) -> str:
         return ("OperatorSettings(image={}, version={}, channels={}, kinds={},"
-                " default_sample={}, domain={}, group={}, api_version={}"
+                " default_sample={}, domain={}, group={}, api_version={},"
                 " initialized={})").format(
             self.image,
             self.version,
@@ -265,7 +265,7 @@ def tag_extension_opt(func):
     )(func)
 
 
-@click.group(invoke_without_command=True)
+@click.group(invoke_without_command=True, chain=True)
 @verbose_opt
 @click.version_option()
 def main(verbose):
